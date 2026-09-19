@@ -1,18 +1,34 @@
 import requests
 import re
 import os
-
-
 # ========== 填写源的地址 ==========
 URL_LIST = [
     "https://raw.githubusercontent.com/bang359/dsj/refs/heads/main/dsjcs1.txt"
 ]
-
 # ========== 分组映射：左边是源里的分组名，右边是输出时改后的分组名 ==========
 GROUP_MAP = {
     "🚀风云极速": "HS风云极速",
     
 }
+
+# -------------------------- 黑名单配置区 --------------------------
+# 按频道名称黑名单，写在这里，精准匹配，命中就丢弃
+BLACK_CHANNEL_NAMES = [
+    "CCTV1综合",
+    "CCTV2财经",
+    "CCTV3综艺",
+    "CCTV14少儿",
+    "广东卫视",
+    "湖南卫视",
+    "浙江卫视",
+    "湖北卫视",
+    "贵州卫视"
+]
+# 按链接关键词黑名单，只要播放url包含这个文字就过滤
+BLACK_URL_KEYWORDS = [
+    # "test.com"
+]
+# -----------------------------------------------------------------
 
 def parse_any(text: str):
     res = []
@@ -66,9 +82,20 @@ def main():
             for extinf, play_url in channels:
                 ch_name = get_channel_name(extinf)
                 ch_group = get_group_title(extinf)
+                
                 # 只保留 GROUP_MAP 里有的分组，其他全屏蔽
                 if ch_group not in GROUP_MAP:
                     continue
+
+                # ========== 黑名单判断 ==========
+                # 频道名称命中黑名单，直接跳过
+                if ch_name in BLACK_CHANNEL_NAMES:
+                    continue
+                # 链接包含黑名单关键词，直接跳过
+                if any(keyword in play_url for keyword in BLACK_URL_KEYWORDS):
+                    continue
+                # =================================
+
                 # 关键：查映射表，把源分组名改成输出分组名
                 output_group = GROUP_MAP[ch_group]
                 item_key = (ch_name, play_url)
@@ -81,7 +108,6 @@ def main():
     print(f"✅筛选结束，共提取 {total_cnt} 个频道")
     for gname, ch_list in group_bucket.items():
         print(f"  - {gname}: {len(ch_list)} 个频道")
-
     out_dir = os.path.dirname(os.path.abspath(__file__))
     output_m3u = ["#EXTM3U"]
     for gname, ch_list in group_bucket.items():
@@ -94,6 +120,6 @@ def main():
     with open(m3u8_path, "w", encoding="utf-8") as f:
         f.write("\n".join(output_m3u))
     print(f"✅已输出 m3u8：{m3u8_path}")
-
 if __name__ == "__main__":
     main()
+
